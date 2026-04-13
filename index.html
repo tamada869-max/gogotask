@@ -700,13 +700,13 @@ const DEFAULT_STORES = [
 // ===== FIREBASE CONFIG =====
 // ⚠️ 以下の設定値をご自身のFirebaseプロジェクトのものに書き換えてください
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBywG4qfcFhEKdAmGrvIG3O4F2sB7-Rkw8",
-  authDomain: "gongcha-15db7.firebaseapp.com",
-  projectId: "gongcha-15db7",
-  storageBucket: "gongcha-15db7.firebasestorage.app",
-  messagingSenderId: "979889429618",
-  appId: "1:979889429618:web:cec4deaeb90a37929eb6eb",
-  measurementId: "G-47VM1QB29J"
+   apiKey: "AIzaSyCgYxHy9M74CeFieCarEFX6aBDVln4hKro",
+  authDomain: "gotask-490c9.firebaseapp.com",
+  projectId: "gotask-490c9",
+  storageBucket: "gotask-490c9.firebasestorage.app",
+  messagingSenderId: "140038013651",
+  appId: "1:140038013651:web:b3329bbb52c52d960aca26",
+  measurementId: "G-97M6XTWHC4"
 };
 
 // ===== STATE =====
@@ -1300,7 +1300,7 @@ function openStoreModal() {
 function renderStoreList() {
   const list = document.getElementById('store-list');
   list.innerHTML = state.stores.map(s => `
-    <div class="store-item ${s.id === state.currentStoreId ? 'active' : ''}" onclick="switchStore(${s.id})">
+    <div class="store-item ${s.id === state.currentStoreId ? 'active' : ''}" onclick="switchStore('${s.id}')">
       <div>
         <div class="store-item-name">🏪 ${s.name}</div>
         <div class="store-item-date">GO日: ${s.goDate ? fmtDateFull(s.goDate) : '未設定'}</div>
@@ -1310,17 +1310,39 @@ function renderStoreList() {
 }
 
 function switchStore(id) {
+  // IDを文字列に統一
+  id = String(id);
   state.currentStoreId = id;
   if (!state.tasks[id]) {
-    state.tasks[id] = DEFAULT_TASKS.map(t => ({...t, comments: []}));
+    // GO日基準でデフォルトタスクを生成
+    const store = state.stores.find(s => s.id === id);
+    const goDate = store?.goDate || '';
+    if (goDate && goDate !== BASE_GO_DATE) {
+      const baseGo = parseDate(BASE_GO_DATE);
+      const newGo  = parseDate(goDate);
+      const diffMs = newGo - baseGo;
+      state.tasks[id] = DEFAULT_TASKS.map(t => {
+        const shifted = { ...t, comments: [], status: 'todo' };
+        if (t.start) shifted.start = toDateStr(new Date(parseDate(t.start).getTime() + diffMs));
+        if (t.end)   shifted.end   = toDateStr(new Date(parseDate(t.end).getTime()   + diffMs));
+        if (t.isGoTask && goDate) {
+          const d = parseDate(goDate);
+          shifted.name  = `🎉 GO（${d.getMonth()+1}/${d.getDate()} グランドオープン）`;
+          shifted.start = goDate;
+          shifted.end   = goDate;
+        }
+        return shifted;
+      });
+    } else {
+      state.tasks[id] = DEFAULT_TASKS.map(t => ({...t, comments: [], status: 'todo'}));
+    }
   }
   saveStores();
   const store = currentStore();
   document.getElementById('currentStoreName').textContent = store.name;
   // ヘッダーのGO日入力を切替先店舗のGO日に更新
-  if (store.goDate) {
-    document.getElementById('header-go-date').value = store.goDate;
-  }
+  const goInput = document.getElementById('header-go-date');
+  if (goInput) goInput.value = store.goDate || '';
   closeModal('store-modal');
   renderDashboard();
   showToast(`🏪 ${store.name} に切り替えました`);
